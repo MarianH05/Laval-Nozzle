@@ -1,0 +1,68 @@
+#!/bin/sh
+cd "${0%/*}" || exit 1
+
+ROOT_DIR="$PWD"
+DEFAULT_CASES="cases/subsonic cases/choked cases/internal_shock"
+
+. "${WM_PROJECT_DIR:?}/bin/tools/RunFunctions"
+
+case_path()
+{
+    case "$1" in
+        cases/*) printf '%s\n' "$1" ;;
+        *)       printf 'cases/%s\n' "$1" ;;
+    esac
+}
+
+validate_case()
+{
+    CASE="$1"
+    CASE_NAME="$(basename "$CASE")"
+    CASE_DIR="$ROOT_DIR/$CASE"
+
+    if [ ! -d "$CASE_DIR" ]; then
+        echo "Case not found: $CASE" >&2
+        exit 1
+    fi
+
+    echo "Validating $CASE"
+    (
+        cd "$CASE_DIR" || exit 1
+        if [ ! -f constant/polyMesh/owner ]; then
+            runApplication blockMesh
+        fi
+        rm -f log.checkMesh
+        runApplication checkMesh
+    )
+
+    if ! find "$CASE_DIR" -maxdepth 2 -type f -path '*/rho' | grep -q .; then
+        echo "No solved time directory with rho/U/p/T found for $CASE; mesh check completed, field validation skipped."
+        echo "Run './Allrun $CASE' first to regenerate CFD results before full validation."
+        exit 0
+    fi
+
+    python3 "$ROOT_DIR/scripts/validate_case.py" \
+        --case "$CASE_DIR" \
+        --summary "$ROOT_DIR/docs/validation_${CASE_NAME}.md" \
+        --images-dir "$ROOT_DIR/docs/images/$CASE_NAME" \
+        --area-images-dir "$ROOT_DIR/docs/images" \
+        --study-csv "$ROOT_DIR/docs/pressure_ratio_study.csv" \
+        --study-markdown "$ROOT_DIR/docs/pressure_ratio_study.md" \
+        --centerline-output "$CASE_DIR/postProcessing/centerline/centerline_latest.csv" \
+        $(case "$CASE" in cases/mesh_study/*) printf '%s\n' "--skip-pressure-study" ;; esac) \
+        $([ "$CASE_NAME" = "subsonic" ] && printf '%s\n' "--subsonic")
+}
+
+if [ "$#" -eq 0 ]; then
+    set -- all
+fi
+
+for ARG in "$@"; do
+    if [ "$ARG" = "all" ]; then
+        for CASE in $DEFAULT_CASES; do
+            validate_case "$CASE"
+        done
+    else
+        validate_case "$(case_path "$ARG")"
+    fi
+done

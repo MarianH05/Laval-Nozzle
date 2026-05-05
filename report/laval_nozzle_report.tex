@@ -1,0 +1,187 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage{listings}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=blue
+}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    frame=single,
+    breaklines=true,
+    columns=fullflexible
+}
+
+\title{\textbf{Compressible Flow Through a Converging-Diverging Laval Nozzle}\\
+\large Current On-Disk Validation Report}
+\author{Marian}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report records the validation state of the Laval nozzle OpenFOAM cases from files currently present on disk. No solver, mesh generator, mesh checker, or case setup command was rerun for this update. Results are claimed only where completed time directories and required fields are available in the current checkout.
+\end{abstract}
+
+\section{Scope of This Update}
+
+The update analyzed only:
+
+\begin{itemize}
+    \item \texttt{cases/subsonic}
+    \item \texttt{cases/choked}
+    \item \texttt{cases/internal\_shock}
+\end{itemize}
+
+The following commands were not run:
+
+\begin{itemize}
+    \item \texttt{blockMesh}
+    \item \texttt{checkMesh}
+    \item \texttt{rhoCentralFoam}
+    \item \texttt{Allrun}
+\end{itemize}
+
+The latest available numerical time directory was selected for each case. A case is marked \texttt{NOT AVAILABLE / NEEDS RUN} if the latest directory is only the initial \texttt{0} directory or if required fields are missing.
+
+\section{Validation Method}
+
+Mass flow is evaluated directly from the latest-time \texttt{rho} and \texttt{U} fields. The flux field \texttt{phi} is not used. For each inlet or outlet boundary face,
+
+\begin{equation}
+    \dot{m} = \int_A \rho \mathbf{U}\cdot\mathbf{n}\,dA,
+\end{equation}
+
+with the face area vector computed from the existing mesh vertices and owner-cell values used for \texttt{rho} and \texttt{U}. The mass conservation error is
+
+\begin{equation}
+    \epsilon_{\dot{m}} =
+    \frac{\left|\left|\dot{m}_\text{in}\right| - \left|\dot{m}_\text{out}\right|\right|}
+    {\max\left(\left|\dot{m}_\text{in}\right|,\left|\dot{m}_\text{out}\right|\right)}
+    \times 100.
+\end{equation}
+
+Mach number is read from a stored \texttt{Ma} field when available. If \texttt{Ma} is not present but \texttt{U} and \texttt{T} are present, Mach number is computed from existing fields:
+
+\begin{equation}
+    M = \frac{|\mathbf{U}|}{\sqrt{\gamma R T}},
+    \qquad
+    \gamma = 1.4,\quad R = \SI{287}{J.kg^{-1}.K^{-1}}.
+\end{equation}
+
+The throat Mach number reported here is the maximum Mach number in cells satisfying
+\(|x - \SI{0.05}{m}| \le \SI{0.003}{m}\). The maximum Mach number is the maximum over all cells.
+
+\section{Current On-Disk Results}
+
+\begin{table}[h]
+\centering
+\caption{Availability and validation verdict from current disk contents.}
+\begin{tabular}{lccc}
+\toprule
+Case & Latest time & Required latest fields & Verdict \\
+\midrule
+\texttt{subsonic} & 0.0025 & present & \texttt{QUESTIONABLE} \\
+\texttt{choked} & 0 & missing \texttt{rho}; initial fields only & \texttt{NOT AVAILABLE / NEEDS RUN} \\
+\texttt{internal\_shock} & 0 & missing \texttt{rho}; initial fields only & \texttt{NOT AVAILABLE / NEEDS RUN} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Subsonic Case}
+
+The latest usable directory in \texttt{cases/subsonic} is \texttt{0.0025}. It contains \texttt{p}, \texttt{T}, \texttt{rho}, \texttt{U}, and \texttt{Ma}.
+
+\begin{table}[h]
+\centering
+\caption{Subsonic latest-time field extrema.}
+\begin{tabular}{lcc}
+\toprule
+Field & Minimum & Maximum \\
+\midrule
+$p$ [Pa] & 260001 & 307225 \\
+$T$ [K] & 287.802 & 302.027 \\
+$\rho$ [kg/m$^3$] & 3.14717 & 3.54363 \\
+$M$ [-] & 0.0946621 & 0.343661 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Subsonic mass-flow and stability checks.}
+\begin{tabular}{lc}
+\toprule
+Quantity & Value \\
+\midrule
+$\dot{m}_\text{in}$ & $-6.263109\times10^{-3}$ kg/s \\
+$\dot{m}_\text{out}$ & $6.000709\times10^{-3}$ kg/s \\
+Mass conservation error & 4.1896\% \\
+Throat Mach number & 0.343661 \\
+Maximum Mach number & 0.343661 \\
+Maximum Courant number from existing \texttt{log.rhoCentralFoam} & 0.545193 \\
+Final mean/max Courant number from existing log & 0.092884 / 0.50095 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The existing \texttt{log.checkMesh} reports a passing mesh, maximum non-orthogonality of 18.0758 degrees, maximum skewness of 0.19051, and zero negative-volume cells. The result remains fully subsonic and all primitive fields are positive. The mass conservation error is in the marginal range, so the current verdict is \texttt{QUESTIONABLE}, not \texttt{VALID}.
+
+\subsection{Choked Case}
+
+The current \texttt{cases/choked} directory contains only the initial numerical time directory \texttt{0}. The required field \texttt{rho} is not present there, and no completed non-initial result directory is available. Therefore pressure, temperature, density, Mach, mass flow, throat Mach, maximum Mach, and validation verdict are \texttt{NOT AVAILABLE}. This report does not claim a completed choked result from the current disk state.
+
+\subsection{Internal-Shock Case}
+
+The current \texttt{cases/internal\_shock} directory contains only the initial numerical time directory \texttt{0}. The required field \texttt{rho} is not present there, and no completed non-initial result directory is available. Therefore pressure, temperature, density, Mach, mass flow, throat Mach, maximum Mach, and validation verdict are \texttt{NOT AVAILABLE}. This report does not claim a completed internal-shock result from the current disk state.
+
+\section{Pressure-Ratio Study Status}
+
+\begin{table}[h]
+\centering
+\caption{Pressure-ratio definitions and current computed status.}
+\begin{tabular}{lccc}
+\toprule
+Case & $p_0$ [Pa] & $p_b/p_0$ & Current status \\
+\midrule
+\texttt{subsonic} & 300000 & 0.966667 & computed, \texttt{QUESTIONABLE} \\
+\texttt{choked} & 300000 & 0.528333 & \texttt{NOT AVAILABLE / NEEDS RUN} \\
+\texttt{internal\_shock} & 300000 & 0.466667 & \texttt{NOT AVAILABLE / NEEDS RUN} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The pressure choices still define useful operating points for a Laval nozzle study. High back pressure is expected to remain subsonic, the ideal critical pressure ratio for air is approximately 0.528, and lower back pressure can produce supersonic flow with an internal shock depending on downstream conditions. In the current checkout, only the subsonic case has enough latest-time data for validation.
+
+\section{Limitations}
+
+\begin{itemize}
+    \item This update uses only existing files and does not establish convergence by extending any run.
+    \item The current subsonic mass-flow mismatch is 4.1896\%, so it should be treated as marginal.
+    \item The current choked and internal-shock case directories do not contain completed usable results.
+    \item Existing images or older per-case validation documents may not reflect the current disk state unless regenerated from available results.
+\end{itemize}
+
+\section{Generated Summary Files}
+
+The current disk-state audit is mirrored in:
+
+\begin{itemize}
+    \item \texttt{docs/validation\_summary.md}
+    \item \texttt{docs/pressure\_ratio\_study.csv}
+    \item \texttt{docs/pressure\_ratio\_study.md}
+\end{itemize}
+
+\end{document}
