@@ -1,20 +1,21 @@
 # Mesh Independence Study
 
-All variants use the choked Laval nozzle physics, geometry, solver, and runtime controls. Only `system/blockMeshDict` resolution changes.
+All mesh-study cases were analyzed from existing completed outputs only. Runtime is parsed from available solver log segments; no solver was rerun.
 
-| mesh | case_dir | target_cells | total_cell_count | max_non_orthogonality | max_skewness | mdot_in | mdot_out | mass_error_percent | mass_assessment | throat_Mach | max_Mach | runtime_s | status |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| coarse | cases/mesh_study/coarse | 20000 | 20000 |  |  |  |  |  |  |  |  |  | not run |
-| medium | cases/mesh_study/medium | 70000 | 70000 |  |  |  |  |  |  |  |  |  | not run |
-| fine | cases/mesh_study/fine | 150000 | 150000 |  |  |  |  |  |  |  |  |  | not run |
+| mesh | cell_count | runtime_s | throat_Mach | delta_throat_Mach_from_previous | max_Mach | mass_error_percent | delta_mass_error_from_previous_pctpt | mdot_in_kg_s | mdot_out_kg_s | max_Courant | final_Courant | verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| coarse | 20000 | 463.85 | 1.04648 |  | 2.2641 | 0.512397 |  | -0.0139793 | 0.0139076 | 0.358095 | 0.350183 | valid |
+| medium | 70000 | 3500.52 | 1.03652 | -0.00995227 | 2.30388 | 0.277965 | -0.234432 | -0.0139777 | 0.0139388 | 0.355479 | 0.349096 | valid |
+| fine | 150000 | 12863.8 | 1.0468 | 0.0102739 | 2.2675 | 0.183476 | -0.0944886 | -0.0139772 | 0.0139516 | 0.418804 | 0.351029 | valid |
 
-## Commands
+## Medium-Mesh Sufficiency
 
-- `coarse`: `./Allrun cases/mesh_study/coarse`
-- `medium`: `./Allrun cases/mesh_study/medium`
-- `fine`: `./Allrun cases/mesh_study/fine`
-- After one or more cases finish: `python3 scripts/mesh_independence.py`
+The medium-to-fine throat Mach change is `0.0102739` (`0.9815%` relative to fine) and the mass-error change is `0.0944886` percentage points. The medium mesh is sufficient for regime classification and validation-level conclusions, because the sonic throat, supersonic divergent flow, and mass conservation are unchanged within about 1% relative throat Mach.
 
-## Interpretation
+For strict quantitative reporting with an absolute throat-Mach tolerance of `0.01`, use the fine mesh or report the medium result with this residual discretization difference.
 
-The cases have not all been solved yet, so sufficiency cannot be concluded from computed results. The medium mesh is the intended portfolio default because it matches the existing 70000-cell baseline; confirm it by running at least the medium and fine cases and checking that throat Mach and mass flow change only slightly.
+Generated plots:
+
+- `docs/images/mesh_independence_throat_mach.png`
+- `docs/images/mesh_independence_mass_error.png`
+- `docs/images/mesh_independence_max_mach.png`

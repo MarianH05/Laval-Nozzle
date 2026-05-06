@@ -1,0 +1,4 @@
+mesh,cell_count,runtime_s,throat_Mach,delta_throat_Mach_from_previous,max_Mach,mass_error_percent,delta_mass_error_from_previous_pctpt,mdot_in_kg_s,mdot_out_kg_s,max_Courant,final_Courant,verdict
+coarse,20000,463.85,1.04648,,2.2641,0.512397,,-0.0139793,0.0139076,0.358095,0.350183,valid
+medium,70000,3500.52,1.03652,-0.00995227,2.30388,0.277965,-0.234432,-0.0139777,0.0139388,0.355479,0.349096,valid
+fine,150000,12863.8,1.0468,0.0102739,2.2675,0.183476,-0.0944886,-0.0139772,0.0139516,0.418804,0.351029,valid

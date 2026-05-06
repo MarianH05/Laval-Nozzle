@@ -3,185 +3,277 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath}
 \usepackage{booktabs}
+\usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{siunitx}
-\usepackage{xcolor}
-\usepackage{listings}
+\usepackage{array}
+\usepackage{caption}
 
+\graphicspath{{../}}
 \hypersetup{
     colorlinks=true,
     linkcolor=blue,
-    urlcolor=blue,
-    citecolor=blue
+    urlcolor=blue
 }
-
-\lstset{
-    basicstyle=\ttfamily\small,
-    frame=single,
-    breaklines=true,
-    columns=fullflexible
+\sisetup{
+    detect-all,
+    scientific-notation=true
 }
+\setlength{\emergencystretch}{2em}
+\renewcommand{\arraystretch}{1.12}
 
-\title{\textbf{Compressible Flow Through a Converging-Diverging Laval Nozzle}\\
-\large Current On-Disk Validation Report}
+\title{\textbf{Compressible Flow Validation in a Quasi-2D Laval Nozzle}\\
+\large OpenFOAM \texttt{rhoCentralFoam} Portfolio Report}
 \author{Marian}
-\date{\today}
+\date{May 6, 2026}
 
 \begin{document}
 
 \maketitle
 
-\begin{abstract}
-This report records the validation state of the Laval nozzle OpenFOAM cases from files currently present on disk. No solver, mesh generator, mesh checker, or case setup command was rerun for this update. Results are claimed only where completed time directories and required fields are available in the current checkout.
-\end{abstract}
+\section{Abstract}
 
-\section{Scope of This Update}
+This report summarizes a compact CFD validation project for ideal-gas air flowing through a quasi-2D converging-diverging Laval nozzle. The cases were solved with OpenFOAM \texttt{rhoCentralFoam} on \texttt{blockMesh} meshes and post-processed from existing OpenFOAM outputs only. Validation focuses on pressure-ratio regime behavior, direct mass conservation from saved \(\rho\) and \(\mathbf{U}\) fields, Courant-number stability, area-Mach consistency, time-history behavior, and mesh sensitivity. The project is intended as a professional CFD portfolio artifact, not as a production-grade nozzle design workflow.
 
-The update analyzed only:
+\section{Project Overview}
 
+The model is a quasi-2D Laval nozzle with \texttt{empty} front/back patches and intentionally inviscid-style slip walls. Slip walls are used to support comparison against ideal isentropic and area-Mach relations rather than to represent viscous wall losses or boundary-layer development.
+
+\begin{table}[tbp]
+\centering
+\caption{Project configuration.}
+\begin{tabular}{ll}
+\toprule
+Item & Configuration \\
+\midrule
+Solver & OpenFOAM \texttt{rhoCentralFoam} \\
+Mesh generator & \texttt{blockMesh} \\
+Geometry & quasi-2D converging-diverging Laval nozzle \\
+Gas model & ideal-gas air \\
+Reservoir pressure & \SI{300000}{Pa} \\
+Reservoir temperature & \SI{300}{K} \\
+Walls & \texttt{slip}, intentionally for inviscid/isentropic validation \\
+Mass-flow method & direct \(\int_A \rho \mathbf{U}\cdot\mathbf{n}\,dA\) from fields \\
+Flux-field usage & \texttt{phi}, \(\rho\texttt{phi}\), and \texttt{rhoPhi} not used \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.78\linewidth]{docs/images/nozzle_geometry.png}
+\caption{Quasi-2D Laval nozzle geometry used for the OpenFOAM cases.}
+\end{figure}
+
+\section{Physical Background}
+
+For ideal compressible nozzle flow, reducing the back-pressure ratio \(p_b/p_0\) changes the flow topology. High back pressure keeps the nozzle fully subsonic. Near the critical pressure ratio for air, the throat approaches Mach 1 and the mass flow chokes. Lower back pressure permits supersonic acceleration downstream of the throat; if the imposed back pressure is above the shock-free supersonic exit pressure, the divergent section can contain a normal shock.
+
+The inviscid area-Mach relation used for validation is
+\begin{equation}
+\frac{A}{A^*} =
+\frac{1}{M}
+\left[
+\frac{2}{\gamma+1}
+\left(1+\frac{\gamma-1}{2}M^2\right)
+\right]^{\frac{\gamma+1}{2(\gamma-1)}} ,
+\end{equation}
+with \(\gamma=1.4\). The relation has subsonic and supersonic branches for \(A/A^*>1\). It is not applicable through a shock because entropy is produced and the effective downstream \(A^*\) changes.
+
+\section{Numerical Setup}
+
+The cases use \texttt{rhoCentralFoam}, an explicit density-based compressible solver. Meshes are generated with \texttt{blockMesh}; the baseline and medium mesh contain 70000 cells. The computed fields used in validation are pressure \(p\), temperature \(T\), density \(\rho\), and velocity \(\mathbf{U}\). Mach number is read from \texttt{Ma} where present; otherwise it is reconstructed from
+\begin{equation}
+M = \frac{|\mathbf{U}|}{\sqrt{\gamma R T}},
+\qquad
+\gamma=1.4,\quad R=\SI{287}{J.kg^{-1}.K^{-1}}.
+\end{equation}
+
+All results reported here come from existing completed outputs. No solver rerun, mesh regeneration, cleaning, or time-directory deletion was performed for this report update.
+
+\section{Pressure-Ratio Study}
+
+Three pressure-ratio cases isolate the expected subsonic, choked, and internal-shock regimes. The latest-time validation metrics are shown in Table~\ref{tab:pressure}.
+
+\begin{table}[tbp]
+\centering
+\caption{Pressure-ratio validation results from existing computed outputs.}
+\label{tab:pressure}
+\small
+\begin{tabular}{lccccc}
+\toprule
+Case & \(p_b/p_0\) & Throat \(M\) & Max \(M\) & Mass error & Verdict \\
+\midrule
+\texttt{subsonic} & 0.966667 & 0.480536 & 0.480536 & 0.690756\% & valid \\
+\texttt{choked} & 0.528333 & 1.03652 & 2.30388 & 0.277965\% & valid \\
+\texttt{internal\_shock} & 0.466667 & 1.03577 & 2.36018 & 0.256732\% & valid \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The subsonic case remains below Mach 1. The choked case reaches sonic throat conditions and accelerates downstream. The internal-shock case reaches sonic throat conditions, accelerates supersonically, and contains a shock-like downstream transition.
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.82\linewidth]{docs/images/choked/mach_vs_x.png}
+\caption{Choked-case centerline Mach number from the latest computed field.}
+\end{figure}
+
+\section{Validation Methodology}
+
+Validation is performed from OpenFOAM ASCII outputs using deterministic Python post-processing. The workflow checks:
 \begin{itemize}
-    \item \texttt{cases/subsonic}
-    \item \texttt{cases/choked}
-    \item \texttt{cases/internal\_shock}
+\item latest numerical time and solver completion status;
+\item mesh quality from existing \texttt{checkMesh} logs;
+\item maximum and final Courant numbers from solver logs;
+\item min/max pressure, temperature, density, and Mach number;
+\item direct inlet/outlet mass-flow balance;
+\item throat Mach number, maximum Mach number, and observed flow regime;
+\item area-Mach agreement against quasi-1D theory;
+\item time-history behavior from logs and written fields.
 \end{itemize}
 
-The following commands were not run:
-
-\begin{itemize}
-    \item \texttt{blockMesh}
-    \item \texttt{checkMesh}
-    \item \texttt{rhoCentralFoam}
-    \item \texttt{Allrun}
-\end{itemize}
-
-The latest available numerical time directory was selected for each case. A case is marked \texttt{NOT AVAILABLE / NEEDS RUN} if the latest directory is only the initial \texttt{0} directory or if required fields are missing.
-
-\section{Validation Method}
-
-Mass flow is evaluated directly from the latest-time \texttt{rho} and \texttt{U} fields. The flux field \texttt{phi} is not used. For each inlet or outlet boundary face,
-
+Mass flow is computed from saved fields and mesh geometry:
 \begin{equation}
-    \dot{m} = \int_A \rho \mathbf{U}\cdot\mathbf{n}\,dA,
+\dot{m}=\int_A \rho \mathbf{U}\cdot\mathbf{n}\,dA .
 \end{equation}
+The mass conservation error is computed from the difference between the absolute inlet and outlet mass-flow rates, normalized by the larger magnitude. The validation scripts do not use \texttt{phi}, \texttt{rhoPhi}, or \(\rho\texttt{phi}\).
 
-with the face area vector computed from the existing mesh vertices and owner-cell values used for \texttt{rho} and \texttt{U}. The mass conservation error is
+\section{Area-Mach Validation}
 
-\begin{equation}
-    \epsilon_{\dot{m}} =
-    \frac{\left|\left|\dot{m}_\text{in}\right| - \left|\dot{m}_\text{out}\right|\right|}
-    {\max\left(\left|\dot{m}_\text{in}\right|,\left|\dot{m}_\text{out}\right|\right)}
-    \times 100.
-\end{equation}
+The area-Mach validation extracts centerline Mach data, reconstructs \(A(x)/A^*\) from the nozzle geometry, and solves both branches of the isentropic relation. The internal-shock case masks the detected shock region and does not apply isentropic theory through the shock.
 
-Mach number is read from a stored \texttt{Ma} field when available. If \texttt{Ma} is not present but \texttt{U} and \texttt{T} are present, Mach number is computed from existing fields:
-
-\begin{equation}
-    M = \frac{|\mathbf{U}|}{\sqrt{\gamma R T}},
-    \qquad
-    \gamma = 1.4,\quad R = \SI{287}{J.kg^{-1}.K^{-1}}.
-\end{equation}
-
-The throat Mach number reported here is the maximum Mach number in cells satisfying
-\(|x - \SI{0.05}{m}| \le \SI{0.003}{m}\). The maximum Mach number is the maximum over all cells.
-
-\section{Current On-Disk Results}
-
-\begin{table}[h]
+\begin{table}[tbp]
 \centering
-\caption{Availability and validation verdict from current disk contents.}
-\begin{tabular}{lccc}
+\caption{Area-Mach validation summary.}
+\label{tab:area-mach}
+\small
+\begin{tabular}{lcccc}
 \toprule
-Case & Latest time & Required latest fields & Verdict \\
+Case & RMS \(M\) error & Valid points & Masked points & Shock \(x\) [m] \\
 \midrule
-\texttt{subsonic} & 0.0025 & present & \texttt{QUESTIONABLE} \\
-\texttt{choked} & 0 & missing \texttt{rho}; initial fields only & \texttt{NOT AVAILABLE / NEEDS RUN} \\
-\texttt{internal\_shock} & 0 & missing \texttt{rho}; initial fields only & \texttt{NOT AVAILABLE / NEEDS RUN} \\
+\texttt{subsonic} & 0.197192 & 459 & 0 & -- \\
+\texttt{choked} & 0.569107 & 459 & 0 & -- \\
+\texttt{internal\_shock} & 0.0757175 & 370 & 89 & 0.0561075 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Subsonic Case}
+The choked case shows the largest area-Mach RMS difference, indicating that the computed flow is not a purely shock-free isentropic expansion over the whole divergent section. For the internal-shock case, masking the shock and post-shock entropy-change region gives a much lower pre-shock comparison error and a documented downstream fitted branch.
 
-The latest usable directory in \texttt{cases/subsonic} is \texttt{0.0025}. It contains \texttt{p}, \texttt{T}, \texttt{rho}, \texttt{U}, and \texttt{Ma}.
-
-\begin{table}[h]
+\begin{figure}[tbp]
 \centering
-\caption{Subsonic latest-time field extrema.}
-\begin{tabular}{lcc}
+\includegraphics[width=0.86\linewidth]{docs/images/internal_shock_area_mach_validation.png}
+\caption{Internal-shock area-Mach validation. The shock region is masked and excluded from the isentropic comparison.}
+\end{figure}
+
+\section{Time-History Assessment}
+
+Solver logs are parsed for time, \(\Delta t\), Courant number, and execution time. Field-based histories are recomputed only at saved time directories using existing \(\rho\), \(\mathbf{U}\), \(T\), and mesh geometry. Therefore, mass-flow and throat-Mach histories have lower temporal resolution than the solver log.
+
+\begin{table}[tbp]
+\centering
+\caption{Time-history assessment from existing logs and saved fields.}
+\label{tab:history}
+\small
+\begin{tabular}{lccccc}
 \toprule
-Field & Minimum & Maximum \\
+Case & Log samples & Field samples & Max Co & Final mass error & Steadiness \\
 \midrule
-$p$ [Pa] & 260001 & 307225 \\
-$T$ [K] & 287.802 & 302.027 \\
-$\rho$ [kg/m$^3$] & 3.14717 & 3.54363 \\
-$M$ [-] & 0.0946621 & 0.343661 \\
+\texttt{subsonic} & 106396 & 11 & 0.612799 & 0.690756\% & nearly steady \\
+\texttt{choked} & 58939 & 3 & 0.355479 & 0.277965\% & quasi-steady \\
+\texttt{internal\_shock} & 104026 & 5 & 0.201246 & 0.256732\% & quasi-steady \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{table}[h]
+\begin{figure}[tbp]
 \centering
-\caption{Subsonic mass-flow and stability checks.}
-\begin{tabular}{lc}
+\includegraphics[width=0.82\linewidth]{docs/images/choked_courant_history.png}
+\caption{Choked-case Courant-number history parsed from the existing solver log.}
+\end{figure}
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.82\linewidth]{docs/images/choked_mass_flow_history.png}
+\caption{Choked-case inlet and outlet mass-flow history recomputed from written fields.}
+\end{figure}
+
+\section{Mesh Independence Study}
+
+The mesh study varies only the \texttt{blockMeshDict} resolution for the choked operating point. Runtime is parsed from existing solver logs.
+
+\begin{table}[tbp]
+\centering
+\caption{Mesh independence summary for the choked operating point.}
+\label{tab:mesh}
+\small
+\begin{tabular}{lccccc}
 \toprule
-Quantity & Value \\
+Mesh & Cells & Runtime [s] & Throat \(M\) & Max \(M\) & Mass error \\
 \midrule
-$\dot{m}_\text{in}$ & $-6.263109\times10^{-3}$ kg/s \\
-$\dot{m}_\text{out}$ & $6.000709\times10^{-3}$ kg/s \\
-Mass conservation error & 4.1896\% \\
-Throat Mach number & 0.343661 \\
-Maximum Mach number & 0.343661 \\
-Maximum Courant number from existing \texttt{log.rhoCentralFoam} & 0.545193 \\
-Final mean/max Courant number from existing log & 0.092884 / 0.50095 \\
+\texttt{coarse} & 20000 & 463.85 & 1.04648 & 2.2641 & 0.512397\% \\
+\texttt{medium} & 70000 & 3500.52 & 1.03652 & 2.30388 & 0.277965\% \\
+\texttt{fine} & 150000 & 12863.8 & 1.0468 & 2.2675 & 0.183476\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The existing \texttt{log.checkMesh} reports a passing mesh, maximum non-orthogonality of 18.0758 degrees, maximum skewness of 0.19051, and zero negative-volume cells. The result remains fully subsonic and all primitive fields are positive. The mass conservation error is in the marginal range, so the current verdict is \texttt{QUESTIONABLE}, not \texttt{VALID}.
+The medium-to-fine throat Mach change is 0.0102739, equal to 0.9815\% relative to the fine result. The medium mesh is sufficient for regime classification and validation-level conclusions. For strict quantitative throat-Mach reporting with an absolute tolerance of 0.01, the fine mesh should be used or the residual medium-to-fine difference should be stated.
 
-\subsection{Choked Case}
-
-The current \texttt{cases/choked} directory contains only the initial numerical time directory \texttt{0}. The required field \texttt{rho} is not present there, and no completed non-initial result directory is available. Therefore pressure, temperature, density, Mach, mass flow, throat Mach, maximum Mach, and validation verdict are \texttt{NOT AVAILABLE}. This report does not claim a completed choked result from the current disk state.
-
-\subsection{Internal-Shock Case}
-
-The current \texttt{cases/internal\_shock} directory contains only the initial numerical time directory \texttt{0}. The required field \texttt{rho} is not present there, and no completed non-initial result directory is available. Therefore pressure, temperature, density, Mach, mass flow, throat Mach, maximum Mach, and validation verdict are \texttt{NOT AVAILABLE}. This report does not claim a completed internal-shock result from the current disk state.
-
-\section{Pressure-Ratio Study Status}
-
-\begin{table}[h]
+\begin{figure}[tbp]
 \centering
-\caption{Pressure-ratio definitions and current computed status.}
-\begin{tabular}{lccc}
-\toprule
-Case & $p_0$ [Pa] & $p_b/p_0$ & Current status \\
-\midrule
-\texttt{subsonic} & 300000 & 0.966667 & computed, \texttt{QUESTIONABLE} \\
-\texttt{choked} & 300000 & 0.528333 & \texttt{NOT AVAILABLE / NEEDS RUN} \\
-\texttt{internal\_shock} & 300000 & 0.466667 & \texttt{NOT AVAILABLE / NEEDS RUN} \\
-\bottomrule
-\end{tabular}
-\end{table}
+\includegraphics[width=0.82\linewidth]{docs/images/mesh_independence_throat_mach.png}
+\caption{Throat Mach sensitivity across the mesh study.}
+\end{figure}
 
-The pressure choices still define useful operating points for a Laval nozzle study. High back pressure is expected to remain subsonic, the ideal critical pressure ratio for air is approximately 0.528, and lower back pressure can produce supersonic flow with an internal shock depending on downstream conditions. In the current checkout, only the subsonic case has enough latest-time data for validation.
+\section{Results and Discussion}
+
+The pressure-ratio study reproduces the expected qualitative sequence of Laval-nozzle regimes: fully subsonic flow, sonic throat with downstream acceleration, and shock-containing divergent-section flow. All primary cases have positive primitive fields, acceptable mass conservation, passing mesh checks, and stable Courant histories.
+
+The direct mass-flow calculation is a central validation feature. It uses the saved density and velocity fields on inlet and outlet patches, avoiding dependence on flux fields that may not be written or may represent solver-specific intermediate quantities. The final mass conservation errors are below 1\% for the three pressure-ratio cases.
+
+The area-Mach comparison is useful as a diagnostic rather than a complete truth model. The internal-shock case is treated carefully by masking the detected shock region, while the higher RMS error in the choked case is reported rather than hidden. This distinction is important because geometric-throat isentropic theory is not valid through shock losses or non-isentropic adjustment regions.
 
 \section{Limitations}
 
 \begin{itemize}
-    \item This update uses only existing files and does not establish convergence by extending any run.
-    \item The current subsonic mass-flow mismatch is 4.1896\%, so it should be treated as marginal.
-    \item The current choked and internal-shock case directories do not contain completed usable results.
-    \item Existing images or older per-case validation documents may not reflect the current disk state unless regenerated from available results.
+\item The nozzle is quasi-2D with \texttt{empty} front/back patches, not a full 3D geometry.
+\item Slip walls are intentional for inviscid/isentropic validation; viscous losses, wall heat transfer, and boundary layers are not modeled.
+\item Turbulence modeling is not the focus of this project.
+\item Shock position and strength are sensitive to mesh resolution, numerical scheme, and back pressure.
+\item Field-derived histories are limited by the saved write intervals.
+\item The area-Mach relation is inviscid and isentropic; it is not applied through the detected shock region.
+\item This report is a compact portfolio validation artifact, not a certified nozzle design analysis.
 \end{itemize}
 
-\section{Generated Summary Files}
+\section{Conclusions}
 
-The current disk-state audit is mirrored in:
+The completed simulations demonstrate a reproducible OpenFOAM workflow for compressible nozzle validation. The computed pressure-ratio cases show the expected regime progression, and the direct \(\rho\mathbf{U}\cdot\mathbf{n}\) mass-flow integration gives sub-1\% final mass conservation error for the three primary cases. Area-Mach and time-history diagnostics provide additional evidence of physical consistency while documenting where ideal theory is not applicable. The mesh study supports the 70000-cell medium mesh for validation-level regime classification, with the fine mesh preferred for stricter quantitative throat-Mach reporting.
 
+\section{Reproducibility}
+
+The repository contains the OpenFOAM cases, Python validation scripts, Markdown summaries, CSV data tables, generated figures, and this report. The principal generated artifacts are:
 \begin{itemize}
-    \item \texttt{docs/validation\_summary.md}
-    \item \texttt{docs/pressure\_ratio\_study.csv}
-    \item \texttt{docs/pressure\_ratio\_study.md}
+\item \texttt{docs/validation\_summary.md}
+\item \texttt{docs/pressure\_ratio\_study.md}
+\item \texttt{docs/mesh\_independence.md}
+\item \texttt{docs/area\_mach\_validation.md}
+\item \texttt{docs/time\_history\_assessment.md}
+\item \texttt{docs/data/area\_mach\_validation\_summary.csv}
+\item \texttt{docs/data/time\_history\_summary.csv}
+\item \texttt{docs/data/mesh\_independence\_summary.csv}
 \end{itemize}
+
+Existing outputs can be revalidated without rerunning the solver using:
+\begin{verbatim}
+python3 scripts/validate_completed_cases.py
+python3 scripts/advanced_validation.py
+\end{verbatim}
+The PDF can be rebuilt from the repository root with:
+\begin{verbatim}
+cd report
+pdflatex -interaction=nonstopmode -halt-on-error laval_nozzle_report.tex
+\end{verbatim}
 
 \end{document}

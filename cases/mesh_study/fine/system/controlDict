@@ -8,7 +8,7 @@ FoamFile
 
 application     rhoCentralFoam;
 
-startFrom       startTime;
+startFrom       latestTime;
 startTime       0;
 
 stopAt          endTime;

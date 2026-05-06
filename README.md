@@ -1,157 +1,91 @@
-# Laval Nozzle CFD Portfolio Project
+# Laval Nozzle CFD Validation
 
-Compact OpenFOAM portfolio project for compressible flow through a quasi-2D converging-diverging Laval nozzle. The project demonstrates setup, execution, validation, and post-processing of subsonic, choked, and internal-shock nozzle operating regimes using a reproducible `blockMesh` workflow.
+OpenFOAM portfolio project for compressible flow through a quasi-2D converging-diverging Laval nozzle. The work demonstrates setup, execution, validation, and post-processing of subsonic, choked, and internal-shock operating regimes using `rhoCentralFoam`, `blockMesh`, and direct field-based validation.
 
-This is not a production-grade nozzle design package. It is a focused CFD validation project intended to show engineering judgment, numerical workflow discipline, and clear technical communication.
+This is a compact CFD validation project intended for portfolio review. It is not a production-grade nozzle design package.
+
+## Project Summary
+
+The model is a quasi-2D Laval nozzle with ideal-gas air, slip walls, and `empty` front/back patches. Slip walls are used intentionally to emphasize inviscid/isentropic validation behavior rather than viscous boundary-layer prediction.
+
+| Item | Configuration |
+| --- | --- |
+| Solver | OpenFOAM `rhoCentralFoam` |
+| Mesh generator | `blockMesh` |
+| Geometry | quasi-2D converging-diverging Laval nozzle |
+| Gas model | ideal-gas air |
+| Reservoir state | `p0 = 300000 Pa`, `T0 = 300 K` |
+| Wall model | slip walls, intentional inviscid/isentropic reference setup |
+| Primary validation | pressure-ratio regimes, mass conservation, Courant history, area-Mach comparison |
+| Mass-flow method | direct `integral(rho * U dot n dA)` from saved `rho`, `U`, and mesh face areas |
+| Flux fields | `phi`, `rhoPhi`, and `rho*phi` are not used for mass-flow validation |
+
+![Nozzle geometry](docs/images/nozzle_geometry.png)
 
 ## Key Results
 
-Current regenerated validation case: `cases/choked`
+All values below are from existing computed outputs in this repository.
 
-| Quantity | Value |
-| --- | ---: |
-| Solver | `rhoCentralFoam` |
-| Mesh generator | `blockMesh` |
-| Baseline / medium mesh size | approximately 70000 cells |
-| Mass conservation error | 0.2780% |
-| Maximum Courant number | 0.355479 |
-| Throat-region Mach number | 1.03639 |
-| Validation verdict | `VALID` |
+| Case | Latest time | Observed regime | Throat Mach | Max Mach | Mass error | Max Co | Verdict |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | --- |
+| `cases/subsonic` | 0.006 | fully subsonic | 0.480536 | 0.480536 | 0.690756% | 0.612799 | `VALID` |
+| `cases/choked` | 0.002 | choked with internal-shock behavior | 1.03652 | 2.30388 | 0.277965% | 0.355479 | `VALID` |
+| `cases/internal_shock` | 0.002 | choked with internal shock | 1.03577 | 2.36018 | 0.256732% | 0.201246 | `VALID` |
 
-These values are taken from the current regenerated choked-case validation summary. Regenerate them with `./Allvalidate cases/choked` after rerunning the case.
+Primary summary files:
 
-## Why This Project Matters
+- [Validation summary](docs/validation_summary.md)
+- [Pressure-ratio study](docs/pressure_ratio_study.md)
+- [Mesh independence study](docs/mesh_independence.md)
+- [Area-Mach validation](docs/area_mach_validation.md)
+- [Time-history assessment](docs/time_history_assessment.md)
 
-Laval nozzle flow is a compact but demanding CFD problem: it couples compressibility, choking, expansion, and possible shock formation in a geometry with a clear theoretical reference. That makes it useful for testing whether a simulation workflow can preserve mass, maintain stable time stepping, reproduce expected Mach behavior, and distinguish between physical regimes as back pressure changes.
+## Pressure-Ratio Study
 
-For reviewers, this repository is intended to show:
+The pressure-ratio cases use the same geometry and solver setup while reducing outlet static pressure.
 
-- reproducible OpenFOAM case organization
-- conservative solver controls for compressible flow
-- direct validation from OpenFOAM ASCII fields
-- clear separation between generated outputs and source dictionaries
-- documented limitations and next steps
+| Case | `pb/p0` | Expected regime | Observed regime | Verdict |
+| --- | ---: | --- | --- | --- |
+| `subsonic` | 0.966667 | fully subsonic flow | fully subsonic | `VALID` |
+| `choked` | 0.528333 | choked flow with divergent-section acceleration | choked with internal-shock behavior | `VALID` |
+| `internal_shock` | 0.466667 | choked flow with an internal normal shock | choked with internal shock | `VALID` |
 
-## Physics Background
+The computed Mach profiles confirm the intended progression from fully subsonic flow to sonic throat conditions and supersonic downstream flow. The lower back-pressure case shows shock-containing behavior in the divergent section.
 
-The nozzle is a quasi-2D converging-diverging duct. Air is modeled as an ideal gas with `gamma = 1.4`, inlet total temperature `T0 = 300 K`, and inlet total pressure `p0 = 300000 Pa`.
+![Choked Mach centerline](docs/images/choked/mach_vs_x.png)
 
-For an ideal inviscid nozzle, reducing outlet static pressure `pb` changes the flow regime:
+## Mesh Independence Study
 
-- high `pb/p0`: fully subsonic flow
-- near the critical pressure ratio: choked flow with Mach approximately 1 at the throat
-- lower `pb/p0`: supersonic expansion in the divergent section
-- intermediate low back pressure: normal shock inside the divergent section
+The mesh study uses the choked operating point and varies only the `blockMeshDict` resolution.
 
-Slip walls are used intentionally. The goal is inviscid/isentropic validation behavior, not wall-bounded viscous boundary-layer prediction.
+| Mesh | Cells | Runtime [s] | Throat Mach | Max Mach | Mass error | Max Co | Verdict |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `coarse` | 20000 | 463.85 | 1.04648 | 2.2641 | 0.512397% | 0.358095 | `VALID` |
+| `medium` | 70000 | 3500.52 | 1.03652 | 2.30388 | 0.277965% | 0.355479 | `VALID` |
+| `fine` | 150000 | 12863.8 | 1.0468 | 2.2675 | 0.183476% | 0.418804 | `VALID` |
 
-## Numerical Setup
+Medium-to-fine throat Mach change is `0.0102739`, or `0.9815%` relative to the fine result. The medium mesh is sufficient for regime classification and validation-level conclusions. For strict quantitative throat-Mach reporting with an absolute tolerance of `0.01`, the fine mesh should be used or the residual medium-to-fine difference should be reported.
 
-| Item | Setting |
-| --- | --- |
-| Solver | `rhoCentralFoam` |
-| Mesh | `blockMesh` only |
-| Geometry | quasi-2D converging-diverging nozzle |
-| Front/back patches | `empty` |
-| Wall patches | `slip` |
-| Gas model | ideal gas air |
-| Baseline cell count | approximately 70000 |
-| Time stepping | adjustable time step with conservative Courant target |
-| Main validation fields | `rho`, `U`, `p`, `T`, `Ma` when available |
+![Mesh independence throat Mach](docs/images/mesh_independence_throat_mach.png)
 
-Mass flow validation does not require `phi`, `rhoPhi`, or `rho*phi`. It is computed directly from mesh geometry and cell fields:
-
-```text
-mdot = integral(rho * U dot n dA)
-```
-
-## Repository Structure
-
-```text
-LavalNozzle/
-├── cases/
-│   ├── baseline_choked/
-│   ├── subsonic/
-│   ├── choked/
-│   ├── internal_shock/
-│   └── mesh_study/
-│       ├── coarse/
-│       ├── medium/
-│       └── fine/
-├── docs/
-│   ├── images/
-│   ├── mesh_independence.md
-│   ├── paraview_export_guide.md
-│   ├── pressure_ratio_study.md
-│   ├── validation_choked.md
-│   ├── validation_subsonic.md
-│   └── validation_summary.md
-├── scripts/
-├── report/
-├── Allrun
-├── Allclean
-└── Allvalidate
-```
-
-## How To Run
-
-Requirements:
-
-- OpenFOAM v2512 or compatible
-- Python 3
-- `numpy`
-- `matplotlib`
-
-Install Python dependencies:
-
-```bash
-python3 -m pip install -r requirements.txt
-```
-
-Source OpenFOAM, then run a selected case:
-
-```bash
-./Allclean cases/choked
-./Allrun cases/choked
-```
-
-Validate an existing solved case:
-
-```bash
-./Allvalidate cases/choked
-```
-
-Run the three pressure-ratio cases:
-
-```bash
-./Allrun cases/subsonic
-./Allrun cases/choked
-./Allrun cases/internal_shock
-```
-
-Run mesh-study cases individually:
-
-```bash
-./Allrun cases/mesh_study/coarse
-./Allrun cases/mesh_study/medium
-./Allrun cases/mesh_study/fine
-python3 scripts/mesh_independence.py
-```
-
-The mesh-study cases are not run automatically.
+![Mesh independence mass error](docs/images/mesh_independence_mass_error.png)
 
 ## Validation Methodology
 
-The validation scripts parse OpenFOAM ASCII files directly where possible. The workflow checks:
+The validation workflow reads OpenFOAM ASCII outputs directly and avoids hardcoded observed results.
 
-- mesh quality from `checkMesh`
-- Courant number history from solver logs
-- direct inlet/outlet mass conservation using `rho`, `U`, owner cells, and patch face area vectors
-- pressure, temperature, density, and Mach bounds
-- throat choking behavior
-- centerline comparisons with isentropic relations
-- area-Mach relation validation from nozzle geometry
-- time-history steadiness over the last 10% of available samples
+Checks performed:
+
+- latest numerical time and solver completion status
+- Courant number history and final/max Courant values from solver logs
+- mesh quality from existing `checkMesh` logs
+- min/max `p`, `T`, `rho`, and Mach
+- Mach computed from `|U| / sqrt(gamma R T)` when a saved `Ma` field is absent
+- inlet/outlet mass flow from direct patch integration of `rho * U dot n dA`
+- mass conservation error based on absolute inlet/outlet mass-flow magnitudes
+- throat Mach and maximum Mach
+- expected regime versus observed Mach topology
+- validation verdict from mesh quality, stability, positivity, mass conservation, and regime consistency
 
 Mass conservation criteria:
 
@@ -162,109 +96,141 @@ Mass conservation criteria:
 | `3-5%` | marginal |
 | `> 5%` | problematic |
 
-Steadiness criteria:
+## Area-Mach Validation
 
-| Last-10% relative variation | Classification |
-| ---: | --- |
-| `< 1%` | quasi-steady |
-| `1-5%` | nearly steady |
-| `> 5%` | still transient |
+The area-Mach validation reconstructs `A(x)/A*` from `system/blockMeshDict`, solves the quasi-1D isentropic area-Mach relation for both subsonic and supersonic branches, and compares the result against the CFD centerline Mach number.
 
-## Results
+| Case | Area-Mach RMS Mach error | Valid points | Masked points | Shock location |
+| --- | ---: | ---: | ---: | ---: |
+| `subsonic` | 0.197192 | 459 | 0 | |
+| `choked` | 0.569107 | 459 | 0 | |
+| `internal_shock` | 0.0757175 | 370 | 89 | `x = 0.0561075 m` |
 
-Generated validation plots currently included in the repository:
+For the internal-shock case, the detected shock region is masked and isentropic theory is not applied through the shock. A downstream fitted subsonic branch is used only where the post-shock region has enough valid points.
 
-![Nozzle geometry](docs/images/nozzle_geometry.png)
+![Internal-shock area-Mach validation](docs/images/internal_shock_area_mach_validation.png)
 
-![Mach number along centerline](docs/images/choked/mach_vs_x.png)
+## Time-History Assessment
 
-![Pressure ratio along centerline](docs/images/choked/pressure_ratio_vs_x.png)
+Solver logs are parsed for time, `deltaT`, Courant number, and execution time. Mass-flow and throat-Mach histories are recomputed from written time directories using saved `rho`, `U`, `T`, and mesh geometry.
 
-![Temperature ratio along centerline](docs/images/choked/temperature_ratio_vs_x.png)
+| Case | Log samples | Field samples | Max Co | Final mass error | Final throat Mach | Steadiness |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `subsonic` | 106396 | 11 | 0.612799 | 0.690756% | 0.480624 | nearly steady |
+| `choked` | 58939 | 3 | 0.355479 | 0.277965% | 1.04479 | quasi-steady |
+| `internal_shock` | 104026 | 5 | 0.201246 | 0.256732% | 1.04399 | quasi-steady |
 
-![Density ratio along centerline](docs/images/choked/density_ratio_vs_x.png)
+Field-based histories have only as many samples as saved time directories, not every solver step. No convergence claim is made from unsaved intermediate fields.
 
-![Courant number history](docs/images/choked_courant_history.png)
+![Choked Courant history](docs/images/choked_courant_history.png)
 
-ParaView screenshot export instructions are provided in `docs/paraview_export_guide.md`. Expected screenshot filenames include:
+![Choked mass-flow history](docs/images/choked_mass_flow_history.png)
 
-- `docs/images/choked_mach_contour.png`
-- `docs/images/choked_pressure_contour.png`
-- `docs/images/choked_mesh_throat.png`
+## How To Run
 
-Current ParaView exports from the regenerated choked case:
+Requirements:
 
-![Choked Mach contour](docs/images/choked_mach_contour.png)
+- OpenFOAM v2512 or compatible
+- Python 3
+- `numpy`
+- `matplotlib`
+- LaTeX distribution for report compilation
 
-![Choked pressure contour](docs/images/choked_pressure_contour.png)
+Install Python dependencies:
 
-![Choked mesh near throat](docs/images/choked_mesh_throat.png)
+```bash
+python3 -m pip install -r requirements.txt
+```
 
-Those images are generated from actual ParaView exports; no synthetic contour placeholders are committed.
+Run a single case after sourcing OpenFOAM:
 
-## Pressure-Ratio Study
+```bash
+./Allclean cases/choked
+./Allrun cases/choked
+```
 
-The pressure-ratio study compares three operating points with the same geometry and solver setup:
+Validate existing outputs without rerunning the solver:
 
-| Case | `pb/p0` | Current status | Expected regime |
-| --- | ---: | --- | --- |
-| `cases/subsonic` | 0.967 | valid | fully subsonic flow |
-| `cases/choked` | 0.528 | valid | Mach approximately 1 at throat, with supersonic divergent-section acceleration in the regenerated result |
-| `cases/internal_shock` | 0.467 | valid | supersonic region followed by detected internal shock |
+```bash
+./Allvalidate cases/choked
+python3 scripts/validate_completed_cases.py
+python3 scripts/advanced_validation.py
+```
 
-Study outputs:
+Compile the report:
 
-- `docs/pressure_ratio_study.csv`
-- `docs/pressure_ratio_study.md`
+```bash
+cd report
+pdflatex -interaction=nonstopmode -halt-on-error laval_nozzle_report.tex
+```
 
-Observed quantities are populated only from computed case output. The study intentionally avoids hardcoding observed results.
-All three pressure-ratio cases currently have regenerated validation data; the mesh-independence cases remain pending.
+## Repository Structure
 
-## Mesh Independence Study
+```text
+LavalNozzle/
+├── cases/
+│   ├── subsonic/
+│   ├── choked/
+│   ├── internal_shock/
+│   └── mesh_study/
+│       ├── coarse/
+│       ├── medium/
+│       └── fine/
+├── docs/
+│   ├── data/
+│   ├── images/
+│   ├── area_mach_validation.md
+│   ├── mesh_independence.md
+│   ├── pressure_ratio_study.md
+│   ├── time_history_assessment.md
+│   └── validation_summary.md
+├── scripts/
+│   ├── advanced_validation.py
+│   ├── validate_completed_cases.py
+│   └── post-processing utilities
+├── report/
+│   ├── laval_nozzle_report.tex
+│   └── laval_nozzle_report.pdf
+├── Allrun
+├── Allclean
+└── Allvalidate
+```
 
-The mesh study uses the choked case physics and varies only `blockMeshDict` resolution:
+## Report
 
-| Mesh | Target cells |
-| --- | ---: |
-| `cases/mesh_study/coarse` | approximately 20000 |
-| `cases/mesh_study/medium` | approximately 70000 |
-| `cases/mesh_study/fine` | approximately 150000 |
+The compiled technical report is available here:
 
-Current study plots:
-
-![Mesh independence throat Mach](docs/images/mesh_independence_throat_mach.png)
-
-![Mesh independence mass flow](docs/images/mesh_independence_mass_flow.png)
-
-The medium mesh is the intended portfolio default because it matches the validated 70000-cell baseline. It should be considered sufficient only after comparing medium and fine results for throat Mach and mass flow sensitivity.
+- [report/laval_nozzle_report.pdf](report/laval_nozzle_report.pdf)
+- [report/laval_nozzle_report.tex](report/laval_nozzle_report.tex)
 
 ## Limitations
 
 - Quasi-2D setup with `empty` front/back patches, not a full 3D nozzle.
-- Slip walls are used intentionally for inviscid/isentropic validation; viscous boundary layers and wall heat transfer are not modeled.
-- Turbulence modeling is not the focus of this project.
-- Shock position and strength are sensitive to mesh resolution, numerics, and back pressure.
-- Some figures depend on rerunning cases and post-processing scripts.
-- This repository is a compact portfolio project, not a certified or production design workflow.
+- Slip walls are intentional for inviscid/isentropic validation; viscous wall losses and boundary layers are not modeled.
+- Turbulence modeling is not a focus of this project.
+- Shock location and strength are sensitive to mesh resolution, numerical scheme, and back pressure.
+- Field-derived histories are limited by saved write intervals.
+- Area-Mach theory is inviscid and isentropic; it is not applied through the detected shock region.
+- This repository is a compact portfolio project, not a certified or production nozzle design workflow.
 
 ## Future Work
 
 - Add automated regression tests for validation scripts.
-- Run and document the mesh-independence study.
-- Add ParaView screenshots for the subsonic and internal-shock cases, including the detected shock region.
-- Compare against analytical quasi-1D area-Mach predictions more systematically for each regime.
-- Add a viscous-wall variant to show boundary-layer and total-pressure-loss effects.
-- Package post-processing into a single reproducible report-generation command.
+- Add a viscous-wall variant to quantify boundary-layer and total-pressure-loss effects.
+- Expand mesh refinement around the shock and throat for shock-position sensitivity.
+- Add automated report generation as a single reproducible command.
+- Add ParaView exports for subsonic and internal-shock fields.
+- Compare against a dedicated quasi-1D solver for a more detailed analytical reference.
 
 ## Skills Demonstrated
 
-- OpenFOAM case setup for compressible flow
-- `rhoCentralFoam` workflow and runtime control
-- Structured `blockMesh` generation for a quasi-2D nozzle
-- Ideal-gas and isentropic compressible-flow validation
-- Direct field parsing and post-processing with Python
-- Mass-flow integration from mesh geometry
-- Courant/time-history analysis
-- Area-Mach relation validation
-- Mesh independence study design
-- Technical documentation for GitHub and portfolio review
+- OpenFOAM `rhoCentralFoam` setup for compressible ideal-gas flow
+- Structured `blockMesh` generation for quasi-2D nozzle geometry
+- Pressure-ratio regime design for subsonic, choked, and shock-containing flow
+- Direct OpenFOAM ASCII field parsing with Python
+- Mass-flow integration from `rho`, `U`, and mesh face area vectors
+- Courant, `deltaT`, execution-time, and steadiness assessment from solver logs
+- Area-Mach relation reconstruction and branch comparison
+- Shock-region detection and masking for non-isentropic validation
+- Mesh independence assessment with runtime and mass conservation tracking
+- Technical documentation and report generation for CFD portfolio review
