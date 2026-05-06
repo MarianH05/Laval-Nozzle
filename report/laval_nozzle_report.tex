@@ -33,7 +33,7 @@
 
 \section{Abstract}
 
-This report summarizes a compact CFD validation project for ideal-gas air flowing through a quasi-2D converging-diverging Laval nozzle. The cases were solved with OpenFOAM \texttt{rhoCentralFoam} on \texttt{blockMesh} meshes and post-processed from existing OpenFOAM outputs only. Validation focuses on pressure-ratio regime behavior, direct mass conservation from saved \(\rho\) and \(\mathbf{U}\) fields, Courant-number stability, area-Mach consistency, time-history behavior, and mesh sensitivity. The project is intended as a professional CFD portfolio artifact, not as a production-grade nozzle design workflow.
+This report summarizes a compact CFD validation project for ideal-gas air flowing through a quasi-2D converging-diverging Laval nozzle. The cases are configured, run, and validated with OpenFOAM \texttt{rhoCentralFoam}, \texttt{blockMesh}, shell wrappers, Makefile targets, and deterministic Python post-processing scripts. Current capabilities include pressure-ratio regime classification, direct mass conservation from saved \(\rho\) and \(\mathbf{U}\) fields, Courant-number stability assessment, isentropic centerline diagnostics, quasi-1D area-Mach comparison, time-history extraction, and mesh-sensitivity reporting. The project is intended as a professional CFD portfolio artifact, not as a production-grade nozzle design workflow.
 
 \section{Project Overview}
 
@@ -133,6 +133,25 @@ Validation is performed from OpenFOAM ASCII outputs using deterministic Python p
 \item time-history behavior from logs and written fields.
 \end{itemize}
 
+The isentropic reference calculations use the local Mach number and ideal-gas air constants \(\gamma=1.4\) and \(R=\SI{287}{J.kg^{-1}.K^{-1}}\). If a saved \texttt{Ma} field is absent, Mach number is reconstructed as
+\begin{equation}
+M = \frac{|\mathbf{U}|}{\sqrt{\gamma R T}} .
+\end{equation}
+The static-to-stagnation ratios used for centerline pressure, temperature, and density diagnostics are
+\begin{align}
+\frac{T}{T_0} &=
+\left(1+\frac{\gamma-1}{2}M^2\right)^{-1}, \\
+\frac{p}{p_0} &=
+\left(\frac{T}{T_0}\right)^{\frac{\gamma}{\gamma-1}}, \\
+\frac{\rho}{\rho_0} &=
+\left(\frac{T}{T_0}\right)^{\frac{1}{\gamma-1}} .
+\end{align}
+The quasi-1D area-Mach model is evaluated on the appropriate branch using
+\begin{equation}
+\frac{A}{A^*} = \frac{1}{M} \left[ \frac{2}{\gamma + 1} \left( 1 + \frac{\gamma - 1}{2} M^2 \right) \right]^{\frac{\gamma + 1}{2(\gamma - 1)}} .
+\end{equation}
+This equation is applied only in regions where an inviscid isentropic comparison is meaningful; detected shock regions are masked because entropy production changes the downstream effective \(A^*\).
+
 Mass flow is computed from saved fields and mesh geometry:
 \begin{equation}
 \dot{m}=\int_A \rho \mathbf{U}\cdot\mathbf{n}\,dA .
@@ -228,6 +247,8 @@ The medium-to-fine throat Mach change is 0.0102739, equal to 0.9815\% relative t
 \end{figure}
 
 \section{Results and Discussion}
+
+The current script suite supports complete validation of existing OpenFOAM outputs without requiring a solver rerun. It parses solver logs, mesh files, field data, centerline profiles, and written time directories to regenerate Markdown summaries, CSV tables, and plots for regime classification, mass balance, area-Mach behavior, and time histories.
 
 The pressure-ratio study reproduces the expected qualitative sequence of Laval-nozzle regimes: fully subsonic flow, sonic throat with downstream acceleration, and shock-containing divergent-section flow. The existing choked output also has internal-shock-like behavior, so the directory name is retained as the intended pressure-ratio case while the observed behavior is stated explicitly. All primary cases have positive primitive fields, acceptable mass conservation, passing mesh checks, and stable Courant histories.
 

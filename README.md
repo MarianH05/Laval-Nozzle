@@ -22,6 +22,61 @@ The model is a quasi-2D Laval nozzle with ideal-gas air, slip walls, and `empty`
 
 ![Nozzle geometry](docs/images/nozzle_geometry.png)
 
+## Technical Overview
+
+A Laval nozzle is a convergent-divergent duct that converts reservoir enthalpy into directed kinetic energy. In the converging section, subsonic compressible flow accelerates as area decreases. At the geometric throat, sufficiently low back pressure drives the flow to the sonic condition, \(M = 1\), and the mass flow becomes choked. Once choked, further reductions in outlet pressure do not increase the ideal mass flow rate set by the reservoir state and throat area.
+
+Downstream of the throat, the divergent section has two possible behaviors. A shock-free isentropic expansion accelerates supersonic flow as area increases. If the imposed back pressure is too high for a fully expanded supersonic solution, a normal-shock-like transition can appear in the divergent section, reducing Mach number and total pressure while increasing static pressure. This repository exercises those regimes through three OpenFOAM cases:
+
+- `cases/subsonic`: high back pressure, fully subsonic solution.
+- `cases/choked`: sonic throat with downstream acceleration and internal-shock-like behavior in the current output.
+- `cases/internal_shock`: choked flow with a shock-containing divergent section.
+
+The numerical model uses OpenFOAM `rhoCentralFoam`, a density-based compressible solver, on structured `blockMesh` meshes. Python scripts post-process OpenFOAM ASCII fields directly to compute Mach number, mass flow, pressure-ratio diagnostics, area-Mach comparisons, time histories, and mesh-sensitivity summaries.
+
+## Mathematical Models
+
+The post-processing scripts use ideal-gas air with \(\gamma = 1.4\) and \(R = 287\ \mathrm{J/(kg\,K)}\). When a saved `Ma` field is unavailable, Mach number is reconstructed from the velocity and temperature fields:
+
+$$
+M = \frac{\lVert \mathbf{U} \rVert}{\sqrt{\gamma R T}}
+$$
+
+The one-dimensional isentropic relations used for centerline reference curves are:
+
+$$
+\frac{T}{T_0} = \left(1 + \frac{\gamma - 1}{2} M^2\right)^{-1}
+$$
+
+$$
+\frac{p}{p_0} = \left(\frac{T}{T_0}\right)^{\gamma/(\gamma - 1)}
+$$
+
+$$
+\frac{\rho}{\rho_0} = \left(\frac{T}{T_0}\right)^{1/(\gamma - 1)}
+$$
+
+The quasi-1D area-Mach validation solves the standard relation on the subsonic and supersonic branches:
+
+$$
+\frac{A}{A^*} =
+\frac{1}{M}
+\left[
+\frac{2}{\gamma + 1}
+\left(
+1 + \frac{\gamma - 1}{2} M^2
+\right)
+\right]^{\frac{\gamma + 1}{2(\gamma - 1)}}
+$$
+
+Mass conservation is checked by integrating saved density and velocity fields over the inlet and outlet patches:
+
+$$
+\dot{m} = \int_A \rho \mathbf{U}\cdot\mathbf{n}\,dA
+$$
+
+The area-Mach model is applied only where an inviscid isentropic reference is physically meaningful. It is not applied through detected shock regions, where entropy production changes the downstream effective \(A^*\).
+
 ## Key Results
 
 All values below are from existing computed outputs in this repository.
@@ -126,26 +181,54 @@ Field-based histories have only as many samples as saved time directories, not e
 
 ![Choked mass-flow history](docs/images/choked_mass_flow_history.png)
 
-## How To Run
-
-Requirements:
+## Requirements
 
 - OpenFOAM v2512 or compatible
-- Python 3
+- Python 3.10 or newer recommended
 - `numpy`
 - `matplotlib`
 - LaTeX distribution for report compilation
 
-Install Python dependencies:
+The Python package requirements are derived from the repository scripts and are also listed in `requirements.txt`. Standard-library imports include `argparse`, `csv`, `math`, `os`, `re`, and `pathlib`.
+
+## Setup
+
+Clone the repository and install the Python dependencies:
 
 ```bash
+git clone <repository-url>
+cd LavalNozzle
 python3 -m pip install -r requirements.txt
+```
+
+Source OpenFOAM before running solver cases:
+
+```bash
+source /path/to/OpenFOAM/etc/bashrc
+```
+
+## Usage
+
+There is no `main.py` entry point in this project. The main workflows are shell wrappers, Makefile targets, and Python validation scripts.
+
+Run all primary OpenFOAM cases:
+
+```bash
+./Allrun all
 ```
 
 Run a single case after sourcing OpenFOAM:
 
 ```bash
 ./Allrun cases/choked
+```
+
+Equivalent Makefile targets are available:
+
+```bash
+make run-subsonic
+make run-choked
+make run-internal-shock
 ```
 
 Validate existing outputs without rerunning the solver:
@@ -156,6 +239,33 @@ python3 scripts/validate_completed_cases.py
 python3 scripts/advanced_validation.py
 ```
 
+Run the mesh-independence post-processing:
+
+```bash
+python3 scripts/mesh_independence.py
+```
+
+Compile the report:
+
+```bash
+make report
+```
+
+or manually:
+
+```bash
+cd report
+pdflatex -interaction=nonstopmode -halt-on-error laval_nozzle_report.tex
+```
+
+## Maintenance Commands
+
+Install Python dependencies:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
 Perform safe cleanup of Python and LaTeX temporary files:
 
 ```bash
@@ -163,13 +273,6 @@ Perform safe cleanup of Python and LaTeX temporary files:
 ```
 
 Deleting generated result directories is intentionally separated into `./AllcleanResults`, which prints the target directories and requires typing `DELETE_RESULTS`. It never deletes `0/` initial-condition directories.
-
-Compile the report:
-
-```bash
-cd report
-pdflatex -interaction=nonstopmode -halt-on-error laval_nozzle_report.tex
-```
 
 ## Repository Structure
 
