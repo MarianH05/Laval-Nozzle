@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+ROOT_DIR="$PWD"
+DEFAULT_CASES=(cases/subsonic cases/choked cases/internal_shock)
+
+case_path() {
+    case "$1" in
+        cases/*) printf '%s\n' "$1" ;;
+        *) printf 'cases/%s\n' "$1" ;;
+    esac
+}
+
+collect_targets() {
+    local case_dir="$1"
+
+    if [[ ! -d "$case_dir" ]]; then
+        echo "Case not found: $case_dir" >&2
+        exit 1
+    fi
+
+    find "$case_dir" -maxdepth 1 -mindepth 1 \
+        \( -type d -name '[1-9]*' -o -type d -name '[0-9]*.[0-9]*' -o -type d -name 'postProcessing' \) \
+        ! -name '0' \
+        -print
+}
+
+if [[ "$#" -eq 0 ]]; then
+    set -- all
+fi
+
+targets_file="$(mktemp)"
+trap 'rm -f "$targets_file"' EXIT
+
+for arg in "$@"; do
+    if [[ "$arg" == "all" ]]; then
+        for case_dir in "${DEFAULT_CASES[@]}"; do
+            collect_targets "$case_dir" >> "$targets_file"
+        done
+    else
+        collect_targets "$(case_path "$arg")" >> "$targets_file"
+    fi
+done
+
+sort -u "$targets_file" -o "$targets_file"
+
+if [[ ! -s "$targets_file" ]]; then
+    echo "No result directories found for deletion."
+    exit 0
+fi
+
+echo "AllcleanResults will delete these generated result directories:"
+cat "$targets_file"
+echo
+echo "It will never delete 0/ initial-condition directories."
+printf 'Type DELETE_RESULTS to continue: '
+read -r confirmation
+
+if [[ "$confirmation" != "DELETE_RESULTS" ]]; then
+    echo "Aborted."
+    exit 1
+fi
+
+while IFS= read -r target; do
+    case "$target" in
+        */0|*/0/) echo "Refusing to delete initial-condition directory: $target" >&2; exit 1 ;;
+    esac
+    rm -rf -- "$target"
+done < "$targets_file"
+
+echo "Confirmed result cleanup complete."

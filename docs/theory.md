@@ -1,6 +1,8 @@
 # Compressible Laval Nozzle Theory
 
-This project uses ideal-gas air with `gamma = 1.4` and `R = 287 J/(kg K)`.
+This project uses ideal-gas air with `gamma = 1.4` and `R = 287 J/(kg K)`. The numerical cases are quasi-2D OpenFOAM cases with `empty` front/back patches and slip walls. The slip-wall choice is intentional for inviscid and isentropic validation comparisons; it does not model viscous wall losses or boundary-layer development.
+
+## Isentropic Relations
 
 For isentropic compressible flow:
 
@@ -10,17 +12,18 @@ p/p0 = (T/T0)^(gamma/(gamma - 1))
 rho/rho0 = (T/T0)^(1/(gamma - 1))
 ```
 
-The area-Mach relation is:
+The quasi-1D area-Mach relation is:
 
 ```text
 A/A* = (1/M) * [(2/(gamma + 1)) * (1 + (gamma - 1)/2 * M^2)]^((gamma + 1)/(2*(gamma - 1)))
 ```
 
-For a converging-diverging nozzle:
+For `A/A* > 1`, the relation has subsonic and supersonic branches.
 
-- subsonic flow accelerates in the converging section
-- choking occurs when Mach number reaches 1 at the throat
-- supersonic flow accelerates in the diverging section
-- a sufficiently high back pressure can force an internal normal shock
+## Regimes
 
-The current validated baseline is a choked/supersonic case.
+- `subsonic`: fully subsonic flow is expected throughout the nozzle.
+- `choked`: sonic throat conditions are expected; the existing computed case also shows internal-shock-like downstream behavior and is documented that way.
+- `internal_shock`: sonic throat conditions, supersonic divergent-section flow, and shock behavior are expected.
+
+Area-Mach theory is not valid through shocks because entropy is produced and the downstream effective `A*` changes. Shock-containing cases must therefore be interpreted with masking or separate downstream fitting, not as single-branch isentropic solutions.

@@ -1,63 +1,32 @@
-#!/bin/sh
-cd "${0%/*}" || exit 1
+#!/usr/bin/env bash
+set -euo pipefail
 
-DEFAULT_CASES="cases/subsonic cases/choked cases/internal_shock"
+cd "$(dirname "$0")"
 
-case_path()
-{
-    case "$1" in
-        cases/*) printf '%s\n' "$1" ;;
-        *)       printf 'cases/%s\n' "$1" ;;
-    esac
+ROOT_DIR="$PWD"
+
+usage() {
+    cat <<'EOF'
+Allclean removes only safe temporary files.
+
+It does not delete:
+  - OpenFOAM time directories
+  - 0/ initial-condition directories
+  - postProcessing outputs
+  - solver logs
+  - case dictionaries
+
+Use ./AllcleanResults for confirmed deletion of generated results.
+EOF
 }
 
-clean_case()
-{
-    CASE="$1"
+usage
 
-    if [ ! -d "$CASE" ]; then
-        echo "Case not found: $CASE" >&2
-        exit 1
-    fi
+find "$ROOT_DIR" -type d -name __pycache__ -prune -exec rm -rf {} +
+find "$ROOT_DIR" -type f -name '*.pyc' -delete
+find "$ROOT_DIR/report" -maxdepth 1 -type f \
+    \( -name '*.aux' -o -name '*.log' -o -name '*.out' -o -name '*.toc' \
+       -o -name '*.fls' -o -name '*.fdb_latexmk' -o -name '*.synctex.gz' \) \
+    -delete
 
-    echo "Cleaning $CASE"
-    (
-        cd "$CASE" || exit 1
-
-        if command -v foamListTimes >/dev/null 2>&1; then
-            foamListTimes -rm -noZero
-        else
-            find . -maxdepth 1 -type d \( -name '[0-9]' -o -name '[0-9]*.[0-9]*' \) ! -name 0 -exec rm -rf {} +
-        fi
-
-        rm -rf postProcessing
-        rm -rf processor*
-        rm -f log
-        rm -f log.*
-
-        rm -f constant/polyMesh/boundary
-        rm -f constant/polyMesh/faces
-        rm -f constant/polyMesh/neighbour
-        rm -f constant/polyMesh/owner
-        rm -f constant/polyMesh/points
-        rm -f constant/polyMesh/cell*
-        rm -f constant/polyMesh/face*
-        rm -f constant/polyMesh/level*
-        rm -f constant/polyMesh/point*
-        rm -f constant/polyMesh/refinement*
-    )
-}
-
-if [ "$#" -eq 0 ]; then
-    set -- all
-fi
-
-for ARG in "$@"; do
-    if [ "$ARG" = "all" ]; then
-        for CASE in $DEFAULT_CASES; do
-            clean_case "$CASE"
-        done
-    else
-        clean_case "$(case_path "$ARG")"
-    fi
-done
+echo "Safe cleanup complete."

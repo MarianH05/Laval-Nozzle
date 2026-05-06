@@ -1,6 +1,8 @@
 # Validation Summary
 
-This summary was regenerated from existing completed OpenFOAM outputs only. `rhoCentralFoam`, `Allrun`, `Allclean`, and time-directory deletion were not performed. Missing `Ma` fields were handled by computing `|U| / sqrt(gamma R T)` from existing `U` and `T`; `phi` and `rho*phi` were not used.
+This summary was regenerated from existing completed OpenFOAM outputs only. `rhoCentralFoam`, `Allrun`, `Allclean`, and time-directory deletion were not performed. Missing `Ma` fields were handled by computing `|U| / sqrt(gamma R T)` from existing `U` and `T`. Mass flow was computed directly from saved `rho`, `U`, and mesh-face data; `phi`, `rhoPhi`, and `rho*phi` were not used.
+
+The cases are quasi-2D OpenFOAM setups with `empty` front/back patches and intentionally slip walls for inviscid/isentropic validation. This is a compact portfolio validation project, not a production-grade nozzle design workflow.
 
 ## All Cases
 
@@ -16,3 +18,10 @@ This summary was regenerated from existing completed OpenFOAM outputs only. `rho
 ## Verdict Basis
 
 A case is treated as valid when primitive fields remain positive, checkMesh passes, Courant number remains below the stability limit, mass conservation is acceptable, and the observed Mach topology matches the expected regime. Marginal mass conservation or an ambiguous regime produces a questionable verdict rather than a valid one.
+
+## Regime Notes
+
+- `cases/subsonic` is the fully subsonic operating point.
+- `cases/choked` reaches sonic throat conditions and the existing output shows internal-shock-like downstream behavior, so it should not be described as a clean shock-free isentropic expansion.
+- `cases/internal_shock` is the lower-back-pressure shock case.
+- Area-Mach theory is not valid through shocks; shock-containing regions require masking or separate downstream fitting.

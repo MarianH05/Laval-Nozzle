@@ -111,7 +111,7 @@ Case & \(p_b/p_0\) & Throat \(M\) & Max \(M\) & Mass error & Verdict \\
 \end{tabular}
 \end{table}
 
-The subsonic case remains below Mach 1. The choked case reaches sonic throat conditions and accelerates downstream. The internal-shock case reaches sonic throat conditions, accelerates supersonically, and contains a shock-like downstream transition.
+The subsonic case remains below Mach 1. The choked case reaches sonic throat conditions and accelerates downstream, but the existing output also shows internal-shock-like behavior and should not be interpreted as a clean shock-free isentropic expansion. The internal-shock case reaches sonic throat conditions, accelerates supersonically, and contains a shock-like downstream transition.
 
 \begin{figure}[tbp]
 \centering
@@ -159,7 +159,7 @@ Case & RMS \(M\) error & Valid points & Masked points & Shock \(x\) [m] \\
 \end{tabular}
 \end{table}
 
-The choked case shows the largest area-Mach RMS difference, indicating that the computed flow is not a purely shock-free isentropic expansion over the whole divergent section. For the internal-shock case, masking the shock and post-shock entropy-change region gives a much lower pre-shock comparison error and a documented downstream fitted branch.
+The choked case shows the largest area-Mach RMS difference, indicating that the computed flow is not a purely shock-free isentropic expansion over the whole divergent section. This is reported as a limitation of the case label rather than hidden. For the internal-shock case, masking the shock and post-shock entropy-change region gives a much lower pre-shock comparison error and a documented downstream fitted branch.
 
 \begin{figure}[tbp]
 \centering
@@ -229,7 +229,7 @@ The medium-to-fine throat Mach change is 0.0102739, equal to 0.9815\% relative t
 
 \section{Results and Discussion}
 
-The pressure-ratio study reproduces the expected qualitative sequence of Laval-nozzle regimes: fully subsonic flow, sonic throat with downstream acceleration, and shock-containing divergent-section flow. All primary cases have positive primitive fields, acceptable mass conservation, passing mesh checks, and stable Courant histories.
+The pressure-ratio study reproduces the expected qualitative sequence of Laval-nozzle regimes: fully subsonic flow, sonic throat with downstream acceleration, and shock-containing divergent-section flow. The existing choked output also has internal-shock-like behavior, so the directory name is retained as the intended pressure-ratio case while the observed behavior is stated explicitly. All primary cases have positive primitive fields, acceptable mass conservation, passing mesh checks, and stable Courant histories.
 
 The direct mass-flow calculation is a central validation feature. It uses the saved density and velocity fields on inlet and outlet patches, avoiding dependence on flux fields that may not be written or may represent solver-specific intermediate quantities. The final mass conservation errors are below 1\% for the three pressure-ratio cases.
 

@@ -1,38 +1,36 @@
 # OpenFOAM generated time directories
 cases/**/[0-9]*/
 cases/**/[0-9]*.[0-9]*/
-cases/**/-[0-9]*/
-cases/**/-[0-9]*.[0-9]*/
 !cases/**/0/
 !cases/**/0/**
 
 # OpenFOAM generated outputs
-log
-log.*
-postProcessing/
-processor*/
-cases/**/constant/polyMesh/boundary
-cases/**/constant/polyMesh/faces
-cases/**/constant/polyMesh/neighbour
-cases/**/constant/polyMesh/owner
-cases/**/constant/polyMesh/points
-cases/**/constant/polyMesh/cell*
-cases/**/constant/polyMesh/face*
-cases/**/constant/polyMesh/level*
-cases/**/constant/polyMesh/point*
-cases/**/constant/polyMesh/refinement*
+cases/**/log*
+cases/**/postProcessing/
+cases/**/processor*/
 
-# Python
+# Generated blockMesh/polyMesh files
+cases/**/constant/polyMesh/points
+cases/**/constant/polyMesh/faces
+cases/**/constant/polyMesh/owner
+cases/**/constant/polyMesh/neighbour
+cases/**/constant/polyMesh/boundary
+
+# Python cache
 __pycache__/
 *.pyc
 
 # LaTeX auxiliary files
-*.aux
-*.log
-*.out
-*.toc
-*.lof
-*.lot
-*.fls
-*.fdb_latexmk
-*.synctex.gz
+report/*.aux
+report/*.log
+report/*.out
+report/*.toc
+report/*.fls
+report/*.fdb_latexmk
+report/*.synctex.gz
+
+# Temporary editor and OS files
+*~
+*.swp
+*.swo
+.DS_Store

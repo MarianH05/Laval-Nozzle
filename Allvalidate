@@ -1,68 +1,73 @@
-#!/bin/sh
-cd "${0%/*}" || exit 1
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")"
 
 ROOT_DIR="$PWD"
-DEFAULT_CASES="cases/subsonic cases/choked cases/internal_shock"
+DEFAULT_CASES=(cases/subsonic cases/choked cases/internal_shock)
 
-. "${WM_PROJECT_DIR:?}/bin/tools/RunFunctions"
-
-case_path()
-{
+case_path() {
     case "$1" in
         cases/*) printf '%s\n' "$1" ;;
-        *)       printf 'cases/%s\n' "$1" ;;
+        *) printf 'cases/%s\n' "$1" ;;
     esac
 }
 
-validate_case()
-{
-    CASE="$1"
-    CASE_NAME="$(basename "$CASE")"
-    CASE_DIR="$ROOT_DIR/$CASE"
+validate_case() {
+    local case_dir="$1"
+    local case_name
+    local abs_case_dir
+    local extra_args=()
 
-    if [ ! -d "$CASE_DIR" ]; then
-        echo "Case not found: $CASE" >&2
+    abs_case_dir="$ROOT_DIR/$case_dir"
+    case_name="$(basename "$case_dir")"
+
+    if [[ ! -d "$abs_case_dir" ]]; then
+        echo "Case not found: $case_dir" >&2
         exit 1
     fi
 
-    echo "Validating $CASE"
-    (
-        cd "$CASE_DIR" || exit 1
-        if [ ! -f constant/polyMesh/owner ]; then
-            runApplication blockMesh
-        fi
-        rm -f log.checkMesh
-        runApplication checkMesh
-    )
+    if [[ ! -f "$abs_case_dir/system/controlDict" ]]; then
+        echo "Not an OpenFOAM case: $case_dir" >&2
+        exit 1
+    fi
 
-    if ! find "$CASE_DIR" -maxdepth 2 -type f -path '*/rho' | grep -q .; then
-        echo "No solved time directory with rho/U/p/T found for $CASE; mesh check completed, field validation skipped."
-        echo "Run './Allrun $CASE' first to regenerate CFD results before full validation."
+    if ! find "$abs_case_dir" -maxdepth 2 -type f -path '*/rho' | grep -q .; then
+        echo "No solved time directory with rho/U/p/T found for $case_dir."
+        echo "Allvalidate reads existing outputs only; run ./Allrun $case_dir when solver regeneration is intended."
         exit 0
     fi
 
+    if [[ "$case_dir" == cases/mesh_study/* ]]; then
+        extra_args+=(--skip-pressure-study)
+    fi
+
+    if [[ "$case_name" == "subsonic" ]]; then
+        extra_args+=(--subsonic)
+    fi
+
+    echo "Validating existing outputs for $case_dir"
     python3 "$ROOT_DIR/scripts/validate_case.py" \
-        --case "$CASE_DIR" \
-        --summary "$ROOT_DIR/docs/validation_${CASE_NAME}.md" \
-        --images-dir "$ROOT_DIR/docs/images/$CASE_NAME" \
+        --case "$abs_case_dir" \
+        --summary "$ROOT_DIR/docs/validation_${case_name}.md" \
+        --images-dir "$ROOT_DIR/docs/images/$case_name" \
         --area-images-dir "$ROOT_DIR/docs/images" \
         --study-csv "$ROOT_DIR/docs/pressure_ratio_study.csv" \
         --study-markdown "$ROOT_DIR/docs/pressure_ratio_study.md" \
-        --centerline-output "$CASE_DIR/postProcessing/centerline/centerline_latest.csv" \
-        $(case "$CASE" in cases/mesh_study/*) printf '%s\n' "--skip-pressure-study" ;; esac) \
-        $([ "$CASE_NAME" = "subsonic" ] && printf '%s\n' "--subsonic")
+        --centerline-output "$abs_case_dir/postProcessing/centerline/centerline_latest.csv" \
+        "${extra_args[@]}"
 }
 
-if [ "$#" -eq 0 ]; then
+if [[ "$#" -eq 0 ]]; then
     set -- all
 fi
 
-for ARG in "$@"; do
-    if [ "$ARG" = "all" ]; then
-        for CASE in $DEFAULT_CASES; do
-            validate_case "$CASE"
+for arg in "$@"; do
+    if [[ "$arg" == "all" ]]; then
+        for case_dir in "${DEFAULT_CASES[@]}"; do
+            validate_case "$case_dir"
         done
     else
-        validate_case "$(case_path "$ARG")"
+        validate_case "$(case_path "$arg")"
     fi
 done

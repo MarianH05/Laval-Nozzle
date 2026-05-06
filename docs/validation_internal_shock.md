@@ -1,89 +1,41 @@
-# Validation Summary
+# Validation Summary: Internal-Shock Case
 
 Case directory: `cases/internal_shock`
 
 Latest time analyzed: `0.002`
 
-## Mass Flow Check
+This document summarizes existing OpenFOAM outputs only. No solver rerun, mesh regeneration, cleaning, or result deletion was performed. Mass flow is computed directly from saved `rho`, `U`, and mesh-face data; `phi`, `rhoPhi`, and `rho*phi` are not used.
 
-- method: direct patch integral `mdot = integral(rho * U dot n dA)`
-- field source: OpenFOAM ASCII `rho` and `U` at the analyzed time; no `phi` or `rho*phi` required
-- inlet patch: `inlet`
-- outlet patch: `outlet`
-- `mdot_in`: -1.39718001e-02 kg/s
-- `mdot_out`: 1.39359301e-02 kg/s
-- mass conservation error: 0.2567%
-- assessment: excellent
+## Key Metrics
 
-Criteria: `<1%` excellent, `<3%` acceptable, `3-5%` marginal, `>5%` problematic.
+| Metric | Value |
+| --- | ---: |
+| Max Courant number | 0.201246 |
+| Final Courant number | 0.199918 |
+| Pressure range [Pa] | 19704.1 / 288233 |
+| Temperature range [K] | 137.74 / 296.557 |
+| Density range [kg/m3] | 0.498352 / 3.38591 |
+| Mach range | 0.255877 / 2.42748 |
+| Throat Mach | 1.03577 |
+| Max Mach | 2.36018 |
+| Inlet mass flow [kg/s] | -0.0139718 |
+| Outlet mass flow [kg/s] | 0.0139359 |
+| Mass conservation error [%] | 0.256732 |
 
-## Courant Number Summary
+## Assessment
 
-- entries parsed: 104026
-- maximum mean Co: 0.0448416
-- maximum max Co: 0.201246
-- final mean/max Co: 0.0349514 / 0.199918
-- stability note: prefer `maxCo < 0.5`; warn if `maxCo > 1.0`
+The internal-shock case reaches approximately sonic conditions at the throat, accelerates supersonically in the divergent section, and shows shock behavior consistent with the lower imposed back pressure. Primitive fields remain positive, the existing mesh quality summary passes, the Courant history remains bounded, and the final mass conservation error is below 1%.
 
-## Mesh Quality Summary
+## Area-Mach Interpretation
 
-- maximum non-orthogonality: 18.0758
-- maximum skewness: 0.19051
-- negative volume cells: 0
-- mesh passed: True
+The detected shock region is masked for the area-Mach comparison because geometric-throat isentropic theory is not valid through entropy-producing shocks. Where a post-shock comparison is reported, it uses a fitted downstream subsonic branch rather than the original upstream `A*`.
 
-## Physical Sanity Checks
+## Artifacts
 
-- `p` min/max: 19704.1 / 288233
-- `T` min/max: 137.74 / 296.557
-- `rho` min/max: 0.498352 / 3.38591
-- `Ma` min/max: 0.255844 / 2.42717
-- assessment: pass
-
-## Choking Check
-
-- throat-region max Mach: 1.03564
-- global max Mach: 2.35988
-- status: pass
-- note: throat Mach is approximately sonic
-
-## Comparison With Isentropic Theory
-
-- reference uses isentropic air relations with `gamma = 1.4` evaluated from CFD centerline Mach number
-- RMS error in `p/p0`: 0.0798456
-- RMS error in `T/T0`: 0.00343901
-- RMS error in `rho/rho0`: 0.0842885
-- plots written to `docs/images/internal_shock`
-- centerline CSV written to `cases/internal_shock/postProcessing/centerline/centerline_latest.csv`
-
-## Area-Mach Relation Validation
-
-- reference solves the quasi-1D isentropic area-Mach relation from `system/blockMeshDict`
-- throat x-location: 0.05 m
-- throat area proxy: 0.02 m2 per unit depth
-- A/A* range: 1.00017 to 2.49464
-- RMS error in Mach over valid isentropic points: 0.0944668
-- pre-shock isentropic RMS error in Mach: 0.062915
-- post-shock isentropic RMS error in Mach: 0.0227071
-- post-shock comparison points: 18
-- valid comparison points: 336 / 399
-- detected shock location: x = 0.0677379 m
-- branch/masking note: subsonic branch before the throat and supersonic branch after the throat; the detected shock and downstream post-shock region are masked because the geometric-throat isentropic area-Mach relation is not applicable across entropy production
-- Mach comparison plot: `docs/images/internal_shock_mach_area_relation.png`
-- area-ratio plot: `docs/images/internal_shock_area_ratio.png`
-
-## Time-History Steadiness Check
-
-- final max Courant: 0.199918
-- final mass conservation error from histories: 0.256732%
-- last-10% relative variation: 220.497% using `mass conservation error`
-- steadiness classification: still transient
-- criterion: `<1%` quasi-steady, `1-5%` nearly steady, `>5%` still transient
-- Courant plot: `docs/images/internal_shock_courant_history.png`
-- timestep plot: `docs/images/internal_shock_timestep_history.png`
-- mass-flow plot: `docs/images/internal_shock_mass_flow_history.png`
-- throat-Mach plot: `docs/images/internal_shock_throat_mach_history.png`
+- Profile plots: `docs/images/internal_shock/`
+- Area-Mach plot: `docs/images/internal_shock_area_mach_validation.png`
+- Time-history plots: `docs/images/internal_shock_courant_history.png`, `docs/images/internal_shock_mass_flow_history.png`, `docs/images/internal_shock_throat_mach_history.png`
 
 ## Final Verdict
 
-**VALID**
+`VALID`

@@ -1,67 +1,91 @@
-#!/bin/sh
-cd "${0%/*}" || exit 1
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")"
 
 ROOT_DIR="$PWD"
-DEFAULT_CASES="cases/subsonic cases/choked cases/internal_shock"
+DEFAULT_CASES=(cases/subsonic cases/choked cases/internal_shock)
 
-. "${WM_PROJECT_DIR:?}/bin/tools/RunFunctions"
+if [[ -z "${WM_PROJECT_DIR:-}" ]]; then
+    echo "WM_PROJECT_DIR is not set. Source OpenFOAM before running Allrun." >&2
+    exit 1
+fi
 
-case_path()
-{
+# shellcheck source=/dev/null
+source "$WM_PROJECT_DIR/bin/tools/RunFunctions"
+
+case_path() {
     case "$1" in
         cases/*) printf '%s\n' "$1" ;;
-        *)       printf 'cases/%s\n' "$1" ;;
+        *) printf 'cases/%s\n' "$1" ;;
     esac
 }
 
-run_case()
-{
-    CASE="$1"
-    CASE_NAME="$(basename "$CASE")"
+validate_case_path() {
+    local case_dir="$1"
 
-    if [ ! -d "$CASE" ]; then
-        echo "Case not found: $CASE" >&2
+    if [[ ! -d "$case_dir" ]]; then
+        echo "Case not found: $case_dir" >&2
         exit 1
     fi
 
-    echo "Running $CASE"
-    (
-        cd "$CASE" || exit 1
+    if [[ ! -f "$case_dir/system/controlDict" ]]; then
+        echo "Not an OpenFOAM case: $case_dir" >&2
+        exit 1
+    fi
+}
 
+run_case() {
+    local case_dir="$1"
+    local case_name
+    local extra_args=()
+
+    validate_case_path "$case_dir"
+    case_name="$(basename "$case_dir")"
+
+    echo "Running $case_dir"
+    (
+        cd "$case_dir"
         runApplication blockMesh
         runApplication checkMesh
         runApplication rhoCentralFoam
 
-        if rhoCentralFoam -postProcess -func MachNo -latestTime > log.postProcess.MachNo 2>&1
-        then
-            echo "Mach number field written at latest time for $CASE"
+        if rhoCentralFoam -postProcess -func MachNo -latestTime > log.postProcess.MachNo 2>&1; then
+            echo "Mach number field written at latest time for $case_dir"
         else
-            echo "MachNo post-processing skipped for $CASE; see log.postProcess.MachNo"
+            echo "MachNo post-processing skipped for $case_dir; see log.postProcess.MachNo"
         fi
     )
 
+    if [[ "$case_dir" == cases/mesh_study/* ]]; then
+        extra_args+=(--skip-pressure-study)
+    fi
+
+    if [[ "$case_name" == "subsonic" ]]; then
+        extra_args+=(--subsonic)
+    fi
+
     python3 "$ROOT_DIR/scripts/validate_case.py" \
-        --case "$ROOT_DIR/$CASE" \
-        --summary "$ROOT_DIR/docs/validation_${CASE_NAME}.md" \
-        --images-dir "$ROOT_DIR/docs/images/$CASE_NAME" \
+        --case "$ROOT_DIR/$case_dir" \
+        --summary "$ROOT_DIR/docs/validation_${case_name}.md" \
+        --images-dir "$ROOT_DIR/docs/images/$case_name" \
         --area-images-dir "$ROOT_DIR/docs/images" \
         --study-csv "$ROOT_DIR/docs/pressure_ratio_study.csv" \
         --study-markdown "$ROOT_DIR/docs/pressure_ratio_study.md" \
-        --centerline-output "$ROOT_DIR/$CASE/postProcessing/centerline/centerline_latest.csv" \
-        $(case "$CASE" in cases/mesh_study/*) printf '%s\n' "--skip-pressure-study" ;; esac) \
-        $([ "$CASE_NAME" = "subsonic" ] && printf '%s\n' "--subsonic")
+        --centerline-output "$ROOT_DIR/$case_dir/postProcessing/centerline/centerline_latest.csv" \
+        "${extra_args[@]}"
 }
 
-if [ "$#" -eq 0 ]; then
+if [[ "$#" -eq 0 ]]; then
     set -- all
 fi
 
-for ARG in "$@"; do
-    if [ "$ARG" = "all" ]; then
-        for CASE in $DEFAULT_CASES; do
-            run_case "$CASE"
+for arg in "$@"; do
+    if [[ "$arg" == "all" ]]; then
+        for case_dir in "${DEFAULT_CASES[@]}"; do
+            run_case "$case_dir"
         done
     else
-        run_case "$(case_path "$ARG")"
+        run_case "$(case_path "$arg")"
     fi
 done

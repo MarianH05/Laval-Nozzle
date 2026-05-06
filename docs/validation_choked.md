@@ -1,85 +1,43 @@
-# Validation Summary
+# Validation Summary: Choked Case
 
 Case directory: `cases/choked`
 
 Latest time analyzed: `0.002`
 
-## Mass Flow Check
+This document summarizes existing OpenFOAM outputs only. No solver rerun, mesh regeneration, cleaning, or result deletion was performed. Mass flow is computed directly from saved `rho`, `U`, and mesh-face data; `phi`, `rhoPhi`, and `rho*phi` are not used.
 
-- method: direct patch integral `mdot = integral(rho * U dot n dA)`
-- field source: OpenFOAM ASCII `rho` and `U` at the analyzed time; no `phi` or `rho*phi` required
-- inlet patch: `inlet`
-- outlet patch: `outlet`
-- `mdot_in`: -1.39776858e-02 kg/s
-- `mdot_out`: 1.39388328e-02 kg/s
-- mass conservation error: 0.2780%
-- assessment: excellent
+## Key Metrics
 
-Criteria: `<1%` excellent, `<3%` acceptable, `3-5%` marginal, `>5%` problematic.
+| Metric | Value |
+| --- | ---: |
+| Max Courant number | 0.355479 |
+| Final Courant number | 0.349096 |
+| Pressure range [Pa] | 23386.6 / 288256 |
+| Temperature range [K] | 144.663 / 296.562 |
+| Density range [kg/m3] | 0.563184 / 3.38612 |
+| Mach range | 0.256226 / 2.32206 |
+| Throat Mach | 1.03652 |
+| Max Mach | 2.30388 |
+| Inlet mass flow [kg/s] | -0.0139777 |
+| Outlet mass flow [kg/s] | 0.0139388 |
+| Mass conservation error [%] | 0.277965 |
 
-## Courant Number Summary
+## Assessment
 
-- entries parsed: 58939
-- maximum mean Co: 0.0773551
-- maximum max Co: 0.355479
-- final mean/max Co: 0.0594591 / 0.349096
-- stability note: prefer `maxCo < 0.5`; warn if `maxCo > 1.0`
+The choked case reaches approximately sonic conditions at the throat and accelerates supersonically downstream. The existing output also shows internal-shock-like downstream behavior, so this case should not be described as a clean shock-free isentropic expansion. The directory name is retained because it identifies the intended choked pressure-ratio case.
 
-## Mesh Quality Summary
+Primitive fields remain positive, the existing mesh quality summary passes, the Courant history remains bounded, and the final mass conservation error is below 1%.
 
-- maximum non-orthogonality: 18.0758
-- maximum skewness: 0.19051
-- negative volume cells: 0
-- mesh passed: True
+## Area-Mach Interpretation
 
-## Physical Sanity Checks
+The area-Mach comparison uses the subsonic branch upstream of the throat and the supersonic branch downstream. Its relatively high RMS Mach error indicates that ideal isentropic theory is only a diagnostic reference for this case. Area-Mach theory is not valid through shock-containing regions.
 
-- `p` min/max: 23386.6 / 288256
-- `T` min/max: 144.663 / 296.562
-- `rho` min/max: 0.563184 / 3.38612
-- `Ma` min/max: 0.256193 / 2.32177
-- assessment: pass
+## Artifacts
 
-## Choking Check
-
-- throat-region max Mach: 1.03639
-- global max Mach: 2.30358
-- status: pass
-- note: throat Mach is approximately sonic
-
-## Comparison With Isentropic Theory
-
-- reference uses isentropic air relations with `gamma = 1.4` evaluated from CFD centerline Mach number
-- RMS error in `p/p0`: 0.106815
-- RMS error in `T/T0`: 0.00294581
-- RMS error in `rho/rho0`: 0.111694
-- plots written to `docs/images/choked`
-- centerline CSV written to `cases/choked/postProcessing/centerline/centerline_latest.csv`
-
-## Area-Mach Relation Validation
-
-- reference solves the quasi-1D isentropic area-Mach relation from `system/blockMeshDict`
-- throat x-location: 0.05 m
-- throat area proxy: 0.02 m2 per unit depth
-- A/A* range: 1.00017 to 2.49464
-- RMS error in Mach over valid isentropic points: 0.587603
-- valid comparison points: 399 / 399
-- branch/masking note: subsonic branch before the throat and supersonic branch after the throat
-- Mach comparison plot: `docs/images/choked_mach_area_relation.png`
-- area-ratio plot: `docs/images/choked_area_ratio.png`
-
-## Time-History Steadiness Check
-
-- final max Courant: 0.349096
-- final mass conservation error from histories: 0.277965%
-- last-10% relative variation: 95.3662% using `mass conservation error`
-- steadiness classification: still transient
-- criterion: `<1%` quasi-steady, `1-5%` nearly steady, `>5%` still transient
-- Courant plot: `docs/images/choked_courant_history.png`
-- timestep plot: `docs/images/choked_timestep_history.png`
-- mass-flow plot: `docs/images/choked_mass_flow_history.png`
-- throat-Mach plot: `docs/images/choked_throat_mach_history.png`
+- Profile plots: `docs/images/choked/`
+- Area-Mach plot: `docs/images/choked_area_mach_validation.png`
+- Time-history plots: `docs/images/choked_courant_history.png`, `docs/images/choked_mass_flow_history.png`, `docs/images/choked_throat_mach_history.png`
 
 ## Final Verdict
 
-**VALID**
+`VALID`

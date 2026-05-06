@@ -29,7 +29,7 @@ All values below are from existing computed outputs in this repository.
 | Case | Latest time | Observed regime | Throat Mach | Max Mach | Mass error | Max Co | Verdict |
 | --- | ---: | --- | ---: | ---: | ---: | ---: | --- |
 | `cases/subsonic` | 0.006 | fully subsonic | 0.480536 | 0.480536 | 0.690756% | 0.612799 | `VALID` |
-| `cases/choked` | 0.002 | choked with internal-shock behavior | 1.03652 | 2.30388 | 0.277965% | 0.355479 | `VALID` |
+| `cases/choked` | 0.002 | choked with internal-shock-like behavior | 1.03652 | 2.30388 | 0.277965% | 0.355479 | `VALID` |
 | `cases/internal_shock` | 0.002 | choked with internal shock | 1.03577 | 2.36018 | 0.256732% | 0.201246 | `VALID` |
 
 Primary summary files:
@@ -47,10 +47,10 @@ The pressure-ratio cases use the same geometry and solver setup while reducing o
 | Case | `pb/p0` | Expected regime | Observed regime | Verdict |
 | --- | ---: | --- | --- | --- |
 | `subsonic` | 0.966667 | fully subsonic flow | fully subsonic | `VALID` |
-| `choked` | 0.528333 | choked flow with divergent-section acceleration | choked with internal-shock behavior | `VALID` |
+| `choked` | 0.528333 | choked flow with divergent-section acceleration | choked with internal-shock-like behavior | `VALID` |
 | `internal_shock` | 0.466667 | choked flow with an internal normal shock | choked with internal shock | `VALID` |
 
-The computed Mach profiles confirm the intended progression from fully subsonic flow to sonic throat conditions and supersonic downstream flow. The lower back-pressure case shows shock-containing behavior in the divergent section.
+The computed Mach profiles confirm the intended progression from fully subsonic flow to sonic throat conditions and supersonic downstream flow. The `choked` case reaches a sonic throat but also shows internal-shock-like downstream behavior in the existing output; it is therefore documented honestly rather than presented as a clean shock-free isentropic expansion. The lower-back-pressure `internal_shock` case shows shock-containing behavior in the divergent section.
 
 ![Choked Mach centerline](docs/images/choked/mach_vs_x.png)
 
@@ -145,7 +145,6 @@ python3 -m pip install -r requirements.txt
 Run a single case after sourcing OpenFOAM:
 
 ```bash
-./Allclean cases/choked
 ./Allrun cases/choked
 ```
 
@@ -156,6 +155,14 @@ Validate existing outputs without rerunning the solver:
 python3 scripts/validate_completed_cases.py
 python3 scripts/advanced_validation.py
 ```
+
+Perform safe cleanup of Python and LaTeX temporary files:
+
+```bash
+./Allclean
+```
+
+Deleting generated result directories is intentionally separated into `./AllcleanResults`, which prints the target directories and requires typing `DELETE_RESULTS`. It never deletes `0/` initial-condition directories.
 
 Compile the report:
 
